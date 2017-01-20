@@ -30,7 +30,6 @@
 #include <linux/unistd.h>
 #include <linux/user.h>
 #include <linux/delay.h>
-#include <linux/reboot.h>
 #include <linux/interrupt.h>
 #include <linux/kallsyms.h>
 #include <linux/init.h>
@@ -43,9 +42,9 @@
 #include <linux/random.h>
 #include <linux/hw_breakpoint.h>
 #include <linux/personality.h>
-#include <linux/notifier.h>
 #include <trace/events/power.h>
 #include <linux/percpu.h>
+#include <linux/system-power.h>
 
 #include <asm/alternative.h>
 #include <asm/compat.h>
@@ -126,8 +125,7 @@ void machine_power_off(void)
 {
 	local_irq_disable();
 	smp_send_stop();
-	if (pm_power_off)
-		pm_power_off();
+	system_power_off();
 }
 
 /*
@@ -152,8 +150,7 @@ void machine_restart(char *cmd)
 	if (efi_enabled(EFI_RUNTIME_SERVICES))
 		efi_reboot(reboot_mode, NULL);
 
-	/* Now call the architecture specific reboot code. */
-	do_kernel_restart(cmd);
+	system_restart(cmd);
 
 	/*
 	 * Whoops - the architecture was unable to reboot.
