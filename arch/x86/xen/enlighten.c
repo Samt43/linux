@@ -33,6 +33,7 @@
 #include <linux/memblock.h>
 #include <linux/edd.h>
 #include <linux/frame.h>
+#include <linux/system-power.h>
 
 #include <linux/kexec.h>
 
@@ -1323,8 +1324,7 @@ static void xen_machine_halt(void)
 
 static void xen_machine_power_off(void)
 {
-	if (pm_power_off)
-		pm_power_off();
+	system_power_off();
 	xen_reboot(SHUTDOWN_poweroff);
 }
 
