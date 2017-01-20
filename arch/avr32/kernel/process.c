@@ -13,6 +13,7 @@
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/reboot.h>
+#include <linux/system-power.h>
 #include <linux/tick.h>
 #include <linux/uaccess.h>
 #include <linux/unistd.h>
@@ -48,8 +49,7 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
-	if (pm_power_off)
-		pm_power_off();
+	system_power_off();
 }
 
 void machine_restart(char *cmd)
