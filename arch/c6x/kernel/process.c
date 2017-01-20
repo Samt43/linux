@@ -17,6 +17,7 @@
 #include <linux/mqueue.h>
 #include <linux/syscalls.h>
 #include <linux/reboot.h>
+#include <linux/system-power.h>
 
 #include <asm/syscalls.h>
 
@@ -73,8 +74,7 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
-	if (pm_power_off)
-		pm_power_off();
+	system_power_off();
 	halt_loop();
 }
 
