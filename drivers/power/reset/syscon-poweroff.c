@@ -25,60 +25,78 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/regmap.h>
+#include <linux/system-power.h>
 
-static struct regmap *map;
-static u32 offset;
-static u32 mask;
+struct syscon {
+	struct system_power_chip chip;
+	struct regmap *map;
+	u32 offset;
+	u32 mask;
+};
 
-static void syscon_poweroff(void)
+static inline struct syscon *to_syscon(struct system_power_chip *chip)
 {
-	/* Issue the poweroff */
-	regmap_write(map, offset, mask);
+	return container_of(chip, struct syscon, chip);
+}
 
-	mdelay(1000);
+static int syscon_power_off(struct system_power_chip *chip)
+{
+	struct syscon *syscon = to_syscon(chip);
+
+	/* Issue the poweroff */
+	regmap_write(syscon->map, syscon->offset, syscon->mask);
+
+	msleep(1000);
 
 	pr_emerg("Unable to poweroff system\n");
+
+	return 0;
 }
 
 static int syscon_poweroff_probe(struct platform_device *pdev)
 {
-	char symname[KSYM_NAME_LEN];
+	struct device_node *np = pdev->dev.of_node;
+	struct syscon *syscon;
+	int err;
 
-	map = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "regmap");
-	if (IS_ERR(map)) {
+	syscon = devm_kzalloc(&pdev->dev, sizeof(*syscon), GFP_KERNEL);
+	if (!syscon)
+		return -ENOMEM;
+
+	syscon->map = syscon_regmap_lookup_by_phandle(np, "regmap");
+	if (IS_ERR(syscon->map)) {
 		dev_err(&pdev->dev, "unable to get syscon");
-		return PTR_ERR(map);
+		return PTR_ERR(syscon->map);
 	}
 
-	if (of_property_read_u32(pdev->dev.of_node, "offset", &offset)) {
+	if (of_property_read_u32(np, "offset", &syscon->offset)) {
 		dev_err(&pdev->dev, "unable to read 'offset'");
 		return -EINVAL;
 	}
 
-	if (of_property_read_u32(pdev->dev.of_node, "mask", &mask)) {
+	if (of_property_read_u32(np, "mask", &syscon->mask)) {
 		dev_err(&pdev->dev, "unable to read 'mask'");
 		return -EINVAL;
 	}
 
-	if (pm_power_off) {
-		lookup_symbol_name((ulong)pm_power_off, symname);
-		dev_err(&pdev->dev,
-		"pm_power_off already claimed %p %s",
-		pm_power_off, symname);
-		return -EBUSY;
-	}
+	syscon->chip.level = SYSTEM_POWER_LEVEL_SOC;
+	syscon->chip.dev = &pdev->dev;
+	syscon->chip.power_off = syscon_power_off;
 
-	pm_power_off = syscon_poweroff;
+	err = system_power_chip_add(&syscon->chip);
+	if (err < 0)
+		return err;
+
+	platform_set_drvdata(pdev, syscon);
 
 	return 0;
 }
 
 static int syscon_poweroff_remove(struct platform_device *pdev)
 {
-	if (pm_power_off == syscon_poweroff)
-		pm_power_off = NULL;
+	struct syscon *syscon = platform_get_drvdata(pdev);
 
-	return 0;
+	return system_power_chip_remove(&syscon->chip);
 }
 
 static const struct of_device_id syscon_poweroff_of_match[] = {
