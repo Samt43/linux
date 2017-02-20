@@ -157,11 +157,13 @@ static int tegra_bpmp_serialize_i2c_msg(struct tegra_bpmp_i2c *i2c,
  * would contain 2 bytes that will go to uninitialized buffer 1, and 2 bytes
  * that will go to uninitialized buffer 2.
  */
-static int tegra_bpmp_i2c_deserialize(struct tegra_bpmp_i2c *i2c, char *buf,
-				      size_t size, struct i2c_msg *msgs,
+static int tegra_bpmp_i2c_deserialize(struct tegra_bpmp_i2c *i2c,
+				      struct mrq_i2c_response *response,
+				      struct i2c_msg *msgs,
 				      unsigned int num)
 {
-	size_t len = 0, pos = 0;
+	size_t size = response->xfer.data_size, len = 0, pos = 0;
+	char *buf = response->xfer.data_buf;
 	unsigned int i;
 
 	for (i = 0; i < num; i++)
@@ -242,7 +244,6 @@ static int tegra_bpmp_i2c_xfer(struct i2c_adapter *adapter,
 		return err;
 	}
 
-	/* TODO: move this somewhere else */
 	memset(&request, 0, sizeof(request));
 	memset(&response, 0, sizeof(response));
 
@@ -258,9 +259,7 @@ static int tegra_bpmp_i2c_xfer(struct i2c_adapter *adapter,
 		return err;
 	}
 
-	err = tegra_bpmp_i2c_deserialize(i2c, response.xfer.data_buf,
-					 response.xfer.data_size,
-					 msgs, num);
+	err = tegra_bpmp_i2c_deserialize(i2c, &response, msgs, num);
 	if (err < 0) {
 		dev_err(i2c->dev, "failed to deserialize message: %d\n", err);
 		return err;
@@ -305,7 +304,6 @@ static int tegra_bpmp_i2c_probe(struct platform_device *pdev)
 
 	i2c_set_adapdata(&i2c->adapter, i2c);
 	i2c->adapter.owner = THIS_MODULE;
-	i2c->adapter.class = I2C_CLASS_HWMON;
 	strlcpy(i2c->adapter.name, "Tegra BPMP I2C adapter",
 		sizeof(i2c->adapter.name));
 	i2c->adapter.algo = &tegra_bpmp_i2c_algo;
@@ -314,13 +312,7 @@ static int tegra_bpmp_i2c_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, i2c);
 
-	err = i2c_add_adapter(&i2c->adapter);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to add I2C adapter: %d\n", err);
-		return err;
-	}
-
-	return 0;
+	return i2c_add_adapter(&i2c->adapter);
 }
 
 static int tegra_bpmp_i2c_remove(struct platform_device *pdev)
@@ -346,18 +338,7 @@ static struct platform_driver tegra_bpmp_i2c_driver = {
 	.probe = tegra_bpmp_i2c_probe,
 	.remove = tegra_bpmp_i2c_remove,
 };
-
-static int __init tegra_bpmp_i2c_init_driver(void)
-{
-	return platform_driver_register(&tegra_bpmp_i2c_driver);
-}
-subsys_initcall(tegra_bpmp_i2c_init_driver);
-
-static void __exit tegra_bpmp_i2c_exit_driver(void)
-{
-	platform_driver_unregister(&tegra_bpmp_i2c_driver);
-}
-module_exit(tegra_bpmp_i2c_exit_driver);
+module_platform_driver(tegra_bpmp_i2c_driver);
 
 MODULE_DESCRIPTION("NVIDIA Tegra BPMP I2C bus contoller driver");
 MODULE_AUTHOR("Shardar Shariff Md <smohammed@nvidia.com>");
