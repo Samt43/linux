@@ -744,12 +744,19 @@ static void stmmac_adjust_link(struct net_device *dev)
 				phydev->speed = SPEED_UNKNOWN;
 				break;
 			}
+			/**/
 			if (phydev->speed != SPEED_UNKNOWN)
 				stmmac_hw_fix_mac_speed(priv);
+			/**/
 			priv->speed = phydev->speed;
 		}
 
 		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
+
+		/*
+		if (phydev->speed != SPEED_UNKNOWN)
+			stmmac_hw_fix_mac_speed(priv);
+		*/
 
 		if (!priv->oldlink) {
 			new_state = 1;
