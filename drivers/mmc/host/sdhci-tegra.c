@@ -229,9 +229,13 @@ static void tegra_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (!clock)
 		return sdhci_set_clock(host, clock);
 
+	spin_unlock_irq(&host->lock);
+
 	host_clk = tegra_host->ddr_signaling ? clock * 2 : clock;
 	clk_set_rate(pltfm_host->clk, host_clk);
 	host->max_clk = clk_get_rate(pltfm_host->clk);
+
+	spin_lock_irq(&host->lock);
 
 	sdhci_set_clock(host, clock);
 
