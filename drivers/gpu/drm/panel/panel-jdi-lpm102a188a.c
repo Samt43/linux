@@ -125,17 +125,21 @@ static int panel_jdi_write_adaptive_brightness_control(struct panel_jdi *jdi)
 
 static int panel_jdi_disable(struct drm_panel *panel)
 {
+    DRM_ERROR("panel_jdi_disable\n", 0);
 	struct panel_jdi *jdi = to_panel_jdi(panel);
-	int ret;
+	int ret = 0;
 
 	if (!jdi->enabled)
 		return 0;
-
+    DRM_ERROR("panel_jdi_disable1\n", 0);
 	return ret;
 }
 
 static int panel_jdi_unprepare(struct drm_panel *panel)
 {
+    DRM_ERROR("panel_jdi_unprepare\n", 0);
+    /*
+    DRM_ERROR("panel_jdi_unprepare\n", 0);
 	struct panel_jdi *jdi = to_panel_jdi(panel);
 	int ret;
 
@@ -146,7 +150,9 @@ static int panel_jdi_unprepare(struct drm_panel *panel)
 	if (ret < 0)
 		DRM_ERROR("failed to set display off: %d\n", ret);
 
+    */
 	/* Specified by JDI @ 50ms, subject to change */
+    /*
 	msleep(50);
 
 	ret = mipi_dsi_dcs_enter_sleep_mode(jdi->dsi);
@@ -154,32 +160,37 @@ static int panel_jdi_unprepare(struct drm_panel *panel)
 		DRM_ERROR("failed to enter sleep mode: %d\n", ret);
 
 	/* Specified by JDI @ 150ms, subject to change */
+    /*
 	msleep(150);
 
 	gpio_set_value(jdi->reset_gpio,
 		(jdi->reset_gpio_flags & GPIO_ACTIVE_LOW) ? 0 : 1);
 
 	/* T4 = 1ms */
+    /*
 	usleep_range(1000, 3000);
 
 	gpio_set_value(jdi->enable_gpio,
 		(jdi->enable_gpio_flags & GPIO_ACTIVE_LOW) ? 1 : 0);
 
 	/* T5 = 2ms */
+    /*
 	usleep_range(2000, 4000);
 
 	jdi->enabled = false;
-
+    DRM_ERROR("panel_jdi_unprepare 1\n", 0);
+    */
 	return 0;
 }
 
 static int panel_jdi_prepare(struct drm_panel *panel)
 {
+    DRM_ERROR("panel_jdi_prepare\n", 0);
 	struct panel_jdi *jdi = to_panel_jdi(panel);
 	int ret;
 
-	if (jdi->enabled)
-		return 0;
+	//if (jdi->enabled)
+		//return 0;
 
 	gpio_set_value(jdi->enable_gpio,
 		(jdi->enable_gpio_flags & GPIO_ACTIVE_LOW) ? 0 : 1);
@@ -220,6 +231,11 @@ static int panel_jdi_prepare(struct drm_panel *panel)
 	ret = mipi_dsi_dcs_exit_sleep_mode(jdi->slave);
 	if (ret < 0)
 		DRM_ERROR("failed to exit sleep mode: %d\n", ret);
+    
+	/* T2 = 10ms */
+	usleep_range(10000, 15000);
+    
+
 
 	ret = mipi_dsi_dcs_set_tear_on(jdi->dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
 	if (ret < 0)
@@ -230,13 +246,13 @@ static int panel_jdi_prepare(struct drm_panel *panel)
 	if (ret < 0)
 		DRM_ERROR("failed to set tear on: %d\n", ret);
 
-	ret = mipi_dsi_dcs_set_address_mode(jdi->dsi, false, false, false,
-			false, false, false, false, false);
+	//ret = mipi_dsi_dcs_set_address_mode(jdi->dsi, false, false, false,
+	//		false, false, false, false, false);
 	if (ret < 0)
 		DRM_ERROR("failed to set address mode: %d\n", ret);
 
-	ret = mipi_dsi_dcs_set_address_mode(jdi->slave, false, false,
-			false, false, false, false, false, false);
+	//ret = mipi_dsi_dcs_set_address_mode(jdi->slave, false, false,
+	//		false, false, false, false, false, false);
 	if (ret < 0)
 		DRM_ERROR("failed to set address mode: %d\n", ret);
 
@@ -260,6 +276,19 @@ static int panel_jdi_prepare(struct drm_panel *panel)
 	ret = panel_jdi_write_adaptive_brightness_control(jdi);
 	if (ret < 0)
 		DRM_ERROR("failed to set adaptive brightness ctrl: %d\n", ret);
+    
+		/*
+		 * Spec'd by JDI @>67ms, between SleepOUT and deasserting touch
+		 * reset
+		 */
+		msleep(70);
+
+		/*
+		 * We need to wait 150ms between mipi_dsi_dcs_exit_sleep_mode()
+		 * and mipi_dsi_dcs_set_display_on().
+		 */
+		msleep(80);
+    
 
 	ret = mipi_dsi_dcs_set_display_on(jdi->dsi);
 	if (ret < 0)
@@ -270,21 +299,22 @@ static int panel_jdi_prepare(struct drm_panel *panel)
 		DRM_ERROR("failed to set display on: %d\n", ret);
 
 	jdi->enabled = true;
-
+    DRM_ERROR("panel_jdi_prepare 1\n", 0);
 	return ret;
 }
 
 static int panel_jdi_enable(struct drm_panel *panel)
 {
+    DRM_ERROR("panel_jdi_enable\n", 0);
 	return 0;
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 304416,
+	.clock = 331334,
 	.hdisplay = 2560,
-	.hsync_start = 2560 + 80,
-	.hsync_end = 2560 + 80 + 80,
-	.htotal = 2560 + 80 + 80 + 80,
+	.hsync_start = 2560 + 128,
+	.hsync_end = 2560 + 128 + 64,
+	.htotal = 2560 + 128 + 64 + 64,
 	.vdisplay = 1800,
 	.vsync_start = 1800 + 4,
 	.vsync_end = 1800 + 4 + 4,
@@ -332,6 +362,7 @@ MODULE_DEVICE_TABLE(of, jdi_of_match);
 static int panel_jdi_setup_primary(struct mipi_dsi_device *dsi,
 			struct device_node *np)
 {
+    DRM_ERROR("panel_jdi_setup_primary\n", 0);
 	struct panel_jdi *jdi;
 	struct mipi_dsi_device *slave;
 	enum of_gpio_flags gpio_flags;
@@ -434,7 +465,7 @@ static int panel_jdi_setup_primary(struct mipi_dsi_device *dsi,
 		DRM_ERROR("drm_panel_add failed: %d\n", ret);
 		return ret;
 	}
-
+    DRM_ERROR("panel_jdi_setup_primary 1\n", 0);
 	return 0;
 }
 
@@ -464,6 +495,7 @@ static int panel_jdi_dsi_probe(struct mipi_dsi_device *dsi)
 
 static int panel_jdi_dsi_remove(struct mipi_dsi_device *dsi)
 {
+    DRM_ERROR("panel_jdi_dsi_remove\n", 0);
 	struct panel_jdi *jdi = mipi_dsi_get_drvdata(dsi);
 	int ret;
 
@@ -491,12 +523,13 @@ static int panel_jdi_dsi_remove(struct mipi_dsi_device *dsi)
 		DRM_ERROR("failed to detach from DSI host: %d\n", ret);
 
 	put_device(&jdi->slave->dev);
-
+    DRM_ERROR("panel_jdi_dsi_remove 1\n", 0);
 	return 0;
 }
 
 static void panel_jdi_dsi_shutdown(struct mipi_dsi_device *dsi)
 {
+    DRM_ERROR("panel_jdi_dsi_shutdown 1\n", 0);
 	struct panel_jdi *jdi = mipi_dsi_get_drvdata(dsi);
 
 	panel_jdi_disable(&jdi->base);
